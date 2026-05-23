@@ -6,6 +6,6 @@ A collection of `#![no_std]` Rust math libraries for embedded, built on [`nalgeb
 
 | Crate | Modules |
 |---|---|
-| [`eigen-estimate`](eigen-estimate/README.md) | `kalman_filter` |
-| [`eigen-geometry`](eigen-geometry/README.md) | `multidimensional_scaling`; `umeyama` |
-| [`eigen-integrate`](eigen-integrate/README.md) | `runge_kutta_4` |
+| [`eigen-estimate`](eigen-estimate/) | `kalman_filter` |
+| [`eigen-geometry`](eigen-geometry/) | `multidimensional_scaling`; `umeyama` |
+| [`eigen-integrate`](eigen-integrate/) | `runge_kutta_4` |
