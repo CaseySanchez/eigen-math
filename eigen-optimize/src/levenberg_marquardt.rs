@@ -4,15 +4,22 @@ pub trait ResidualsFunctor<Scalar, const PARAMETER_DIM: usize, const RESIDUAL_DI
 where
     Scalar: RealField + Copy,
 {
-    fn evaluate(&self, parameters: &OVector<Scalar, Const<PARAMETER_DIM>>) -> OVector<Scalar, Const<RESIDUAL_DIM>>;
+    fn evaluate(
+        &self,
+        parameters: &OVector<Scalar, Const<PARAMETER_DIM>>,
+    ) -> OVector<Scalar, Const<RESIDUAL_DIM>>;
 }
 
-impl<Scalar, const PARAMETER_DIM: usize, const RESIDUAL_DIM: usize, F> ResidualsFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM> for F
+impl<Scalar, const PARAMETER_DIM: usize, const RESIDUAL_DIM: usize, F>
+    ResidualsFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM> for F
 where
     Scalar: RealField + Copy,
     F: Fn(&OVector<Scalar, Const<PARAMETER_DIM>>) -> OVector<Scalar, Const<RESIDUAL_DIM>>,
 {
-    fn evaluate(&self, parameters: &OVector<Scalar, Const<PARAMETER_DIM>>) -> OVector<Scalar, Const<RESIDUAL_DIM>> {
+    fn evaluate(
+        &self,
+        parameters: &OVector<Scalar, Const<PARAMETER_DIM>>,
+    ) -> OVector<Scalar, Const<RESIDUAL_DIM>> {
         self(parameters)
     }
 }
@@ -62,8 +69,13 @@ pub struct LevenbergMarquardtResult<Scalar> {
     pub iterations: usize,
 }
 
-pub struct LevenbergMarquardt<Scalar, const PARAMETER_DIM: usize, const RESIDUAL_DIM: usize, Residuals, PostStep>
-where
+pub struct LevenbergMarquardt<
+    Scalar,
+    const PARAMETER_DIM: usize,
+    const RESIDUAL_DIM: usize,
+    Residuals,
+    PostStep,
+> where
     Scalar: RealField + Copy,
     Residuals: ResidualsFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM>,
     PostStep: PostStepFunctor<Scalar, PARAMETER_DIM>,
@@ -97,7 +109,8 @@ where
     pub fn solve(&mut self) -> LevenbergMarquardtResult<Scalar> {
         let mut lambda = self.config.lambda_initial;
         let mut current_residuals = self.residuals.evaluate(&self.parameters);
-        let mut current_cost = compute_cost(&current_residuals);
+        let mut current_cost =
+            Scalar::from_f64(0.5).unwrap() * current_residuals.dot(&current_residuals);
 
         for iteration in 0..self.config.max_iterations {
             let jacobian_matrix = compute_numerical_jacobian(
@@ -130,7 +143,7 @@ where
             self.post_step.evaluate(&mut trial_parameters);
 
             let trial_residuals = self.residuals.evaluate(&trial_parameters);
-            let trial_cost = compute_cost(&trial_residuals);
+            let trial_cost = Scalar::from_f64(0.5).unwrap() * trial_residuals.dot(&trial_residuals);
 
             if trial_cost < current_cost {
                 self.parameters = trial_parameters;
@@ -158,13 +171,12 @@ where
     }
 }
 
-fn compute_cost<Scalar: RealField + Copy, const RESIDUAL_DIM: usize>(
-    residuals: &OVector<Scalar, Const<RESIDUAL_DIM>>,
-) -> Scalar {
-    Scalar::from_f64(0.5).unwrap() * residuals.dot(residuals)
-}
-
-fn compute_numerical_jacobian<Scalar, Residuals, const PARAMETER_DIM: usize, const RESIDUAL_DIM: usize>(
+fn compute_numerical_jacobian<
+    Scalar,
+    Residuals,
+    const PARAMETER_DIM: usize,
+    const RESIDUAL_DIM: usize,
+>(
     residuals_functor: &Residuals,
     parameters: &OVector<Scalar, Const<PARAMETER_DIM>>,
     base_residuals: &OVector<Scalar, Const<RESIDUAL_DIM>>,

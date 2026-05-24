@@ -1,29 +1,24 @@
-use nalgebra::{Const, DefaultAllocator, DimDiff, DimSub, OMatrix, RealField, SymmetricEigen, U1};
 use nalgebra::allocator::Allocator;
+use nalgebra::{Const, DefaultAllocator, DimDiff, DimSub, OMatrix, RealField, SymmetricEigen, U1};
 
 #[derive(Debug)]
 pub enum MultidimensionalScalingError {
     InvalidCount,
 }
 
-pub fn multidimensional_scaling<
-    Scalar, 
-    const FEATURE_DIM: usize, 
-    const EMBEDDING_DIM: usize, 
->(
+pub fn multidimensional_scaling<Scalar, const FEATURE_DIM: usize, const EMBEDDING_DIM: usize>(
     feature_matrix: &OMatrix<Scalar, Const<FEATURE_DIM>, Const<FEATURE_DIM>>,
     feature_count: usize,
 ) -> Result<OMatrix<Scalar, Const<EMBEDDING_DIM>, Const<FEATURE_DIM>>, MultidimensionalScalingError>
 where
     Scalar: RealField + Copy,
     Const<FEATURE_DIM>: DimSub<U1>,
-    DefaultAllocator:
-        Allocator<Const<FEATURE_DIM>, Const<FEATURE_DIM>> +
-        Allocator<Const<EMBEDDING_DIM>, Const<EMBEDDING_DIM>> +
-        Allocator<Const<FEATURE_DIM>, Const<EMBEDDING_DIM>> +
-        Allocator<Const<EMBEDDING_DIM>, Const<FEATURE_DIM>> +
-        Allocator<Const<FEATURE_DIM>> +
-        Allocator<DimDiff<Const<FEATURE_DIM>, U1>>,
+    DefaultAllocator: Allocator<Const<FEATURE_DIM>, Const<FEATURE_DIM>>
+        + Allocator<Const<EMBEDDING_DIM>, Const<EMBEDDING_DIM>>
+        + Allocator<Const<FEATURE_DIM>, Const<EMBEDDING_DIM>>
+        + Allocator<Const<EMBEDDING_DIM>, Const<FEATURE_DIM>>
+        + Allocator<Const<FEATURE_DIM>>
+        + Allocator<DimDiff<Const<FEATURE_DIM>, U1>>,
 {
     if feature_count < 1 || feature_count > FEATURE_DIM {
         return Err(MultidimensionalScalingError::InvalidCount);
@@ -31,8 +26,8 @@ where
 
     let inverse_feature_count = Scalar::one() / Scalar::from_usize(feature_count).unwrap();
 
-    let center_matrix = OMatrix::<Scalar, Const<FEATURE_DIM>, Const<FEATURE_DIM>>::from_fn(
-        |row, column| {
+    let center_matrix =
+        OMatrix::<Scalar, Const<FEATURE_DIM>, Const<FEATURE_DIM>>::from_fn(|row, column| {
             if row >= feature_count || column >= feature_count {
                 Scalar::zero()
             } else if row == column {
@@ -40,10 +35,11 @@ where
             } else {
                 Scalar::zero() - inverse_feature_count
             }
-        }
-    );
+        });
 
-    let gram_matrix = (&center_matrix * feature_matrix.map(|feature| feature * feature) * &center_matrix) * Scalar::from_f64(-0.5).unwrap();
+    let gram_matrix =
+        (&center_matrix * feature_matrix.map(|feature| feature * feature) * &center_matrix)
+            * Scalar::from_f64(-0.5).unwrap();
 
     let mut eigen_solver = SymmetricEigen::new(gram_matrix);
 
@@ -57,30 +53,31 @@ where
         }
 
         if max_index != index_1 {
-            eigen_solver.eigenvalues.as_mut_slice().swap(max_index, index_1);
+            eigen_solver
+                .eigenvalues
+                .as_mut_slice()
+                .swap(max_index, index_1);
             eigen_solver.eigenvectors.swap_columns(max_index, index_1);
         }
     }
 
-    let eigenvalues_diagonal_matrix = OMatrix::<Scalar, Const<EMBEDDING_DIM>, Const<EMBEDDING_DIM>>::from_fn(
-        |row, column| {
+    let eigenvalues_diagonal_matrix =
+        OMatrix::<Scalar, Const<EMBEDDING_DIM>, Const<EMBEDDING_DIM>>::from_fn(|row, column| {
             if row == column && row < feature_count {
                 eigen_solver.eigenvalues[row].max(Scalar::zero()).sqrt()
             } else {
                 Scalar::zero()
             }
-        }
-    );
+        });
 
-    let eigenvectors_embedding_matrix = OMatrix::<Scalar, Const<FEATURE_DIM>, Const<EMBEDDING_DIM>>::from_fn(
-        |row, column| {
+    let eigenvectors_embedding_matrix =
+        OMatrix::<Scalar, Const<FEATURE_DIM>, Const<EMBEDDING_DIM>>::from_fn(|row, column| {
             if row < feature_count && column < feature_count {
                 eigen_solver.eigenvectors[(row, column)]
             } else {
                 Scalar::zero()
             }
-        }
-    );
+        });
 
     Ok((eigenvectors_embedding_matrix * eigenvalues_diagonal_matrix).transpose())
 }
@@ -108,9 +105,7 @@ mod tests {
     #[test]
     fn collinear_points_embed_with_unit_spacing() {
         let distance_matrix = OMatrix::<f64, Const<3>, Const<3>>::from_row_slice(&[
-            0.0, 1.0, 2.0,
-            1.0, 0.0, 1.0,
-            2.0, 1.0, 0.0,
+            0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0, 1.0, 0.0,
         ]);
 
         let result = multidimensional_scaling::<f64, 3, 1>(&distance_matrix, 3).unwrap();
@@ -126,9 +121,7 @@ mod tests {
     #[test]
     fn equilateral_triangle_preserves_pairwise_distances() {
         let distance_matrix = OMatrix::<f64, Const<3>, Const<3>>::from_row_slice(&[
-            0.0, 1.0, 1.0,
-            1.0, 0.0, 1.0,
-            1.0, 1.0, 0.0,
+            0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0,
         ]);
 
         let result = multidimensional_scaling::<f64, 3, 2>(&distance_matrix, 3).unwrap();

@@ -4,7 +4,11 @@ pub trait DerivativeFunctor<Scalar, const DIM: usize>
 where
     Scalar: RealField + Copy,
 {
-    fn evaluate(&self, state: &OVector<Scalar, Const<DIM>>, time: Scalar) -> OVector<Scalar, Const<DIM>>;
+    fn evaluate(
+        &self,
+        state: &OVector<Scalar, Const<DIM>>,
+        time: Scalar,
+    ) -> OVector<Scalar, Const<DIM>>;
 }
 
 impl<Scalar, const DIM: usize, F> DerivativeFunctor<Scalar, DIM> for F
@@ -12,7 +16,11 @@ where
     Scalar: RealField + Copy,
     F: Fn(&OVector<Scalar, Const<DIM>>, Scalar) -> OVector<Scalar, Const<DIM>>,
 {
-    fn evaluate(&self, state: &OVector<Scalar, Const<DIM>>, time: Scalar) -> OVector<Scalar, Const<DIM>> {
+    fn evaluate(
+        &self,
+        state: &OVector<Scalar, Const<DIM>>,
+        time: Scalar,
+    ) -> OVector<Scalar, Const<DIM>> {
         self(state, time)
     }
 }
@@ -71,9 +79,8 @@ mod tests {
 
     #[test]
     fn exponential_decay() {
-        let mut runge_kutta_4 = RungeKutta4::<f64, 1, _>::new(
-            |state: &OVector<f64, Const<1>>, _time: f64| -state,
-        );
+        let mut runge_kutta_4 =
+            RungeKutta4::<f64, 1, _>::new(|state: &OVector<f64, Const<1>>, _time: f64| -state);
 
         runge_kutta_4.state[0] = 1.0;
 
