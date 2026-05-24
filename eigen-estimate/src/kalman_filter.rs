@@ -4,69 +4,69 @@ use nalgebra::{
     OVector,
 };
 
-pub trait StateTransitionFunctor<Scalar, const DIMENSIONS: usize>
+pub trait StateTransitionFunctor<Scalar, const DIM: usize>
 where
     Scalar: nalgebra::RealField + nalgebra::Scalar,
 {
-    fn evaluate(&self, delta_time: &Scalar) -> OMatrix<Scalar, Const<DIMENSIONS>, Const<DIMENSIONS>>;
+    fn evaluate(&self, delta_time: &Scalar) -> OMatrix<Scalar, Const<DIM>, Const<DIM>>;
 }
 
-impl<Scalar, const DIMENSIONS: usize, F> StateTransitionFunctor<Scalar, DIMENSIONS> for F
+impl<Scalar, const DIM: usize, F> StateTransitionFunctor<Scalar, DIM> for F
 where
     Scalar: nalgebra::RealField + nalgebra::Scalar,
-    F: Fn(&Scalar) -> OMatrix<Scalar, Const<DIMENSIONS>, Const<DIMENSIONS>>,
+    F: Fn(&Scalar) -> OMatrix<Scalar, Const<DIM>, Const<DIM>>,
 {
-    fn evaluate(&self, delta_time: &Scalar) -> OMatrix<Scalar, Const<DIMENSIONS>, Const<DIMENSIONS>> {
+    fn evaluate(&self, delta_time: &Scalar) -> OMatrix<Scalar, Const<DIM>, Const<DIM>> {
         self(delta_time)
     }
 }
 
-pub trait ProcessCovarianceFunctor<Scalar, const DIMENSIONS: usize>
+pub trait ProcessCovarianceFunctor<Scalar, const DIM: usize>
 where
     Scalar: nalgebra::RealField + nalgebra::Scalar,
 {
-    fn evaluate(&self, delta_time: &Scalar) -> OMatrix<Scalar, Const<DIMENSIONS>, Const<DIMENSIONS>>;
+    fn evaluate(&self, delta_time: &Scalar) -> OMatrix<Scalar, Const<DIM>, Const<DIM>>;
 }
 
-impl<Scalar, const DIMENSIONS: usize, F> ProcessCovarianceFunctor<Scalar, DIMENSIONS> for F
+impl<Scalar, const DIM: usize, F> ProcessCovarianceFunctor<Scalar, DIM> for F
 where
     Scalar: nalgebra::RealField + nalgebra::Scalar,
-    F: Fn(&Scalar) -> OMatrix<Scalar, Const<DIMENSIONS>, Const<DIMENSIONS>>,
+    F: Fn(&Scalar) -> OMatrix<Scalar, Const<DIM>, Const<DIM>>,
 {
-    fn evaluate(&self, delta_time: &Scalar) -> OMatrix<Scalar, Const<DIMENSIONS>, Const<DIMENSIONS>> {
+    fn evaluate(&self, delta_time: &Scalar) -> OMatrix<Scalar, Const<DIM>, Const<DIM>> {
         self(delta_time)
     }
 }
 
 pub struct KalmanFilter<
     Scalar,
-    const DIMENSIONS: usize,
+    const DIM: usize,
     StateTransition,
     ProcessCovariance,
 >
 where
     Scalar: nalgebra::RealField + nalgebra::Scalar,
-    StateTransition: StateTransitionFunctor<Scalar, DIMENSIONS>,
-    ProcessCovariance: ProcessCovarianceFunctor<Scalar, DIMENSIONS>,
+    StateTransition: StateTransitionFunctor<Scalar, DIM>,
+    ProcessCovariance: ProcessCovarianceFunctor<Scalar, DIM>,
 {
     state_transition: StateTransition,
     process_covariance: ProcessCovariance,
-    pub estimate_state: OVector<Scalar, Const<DIMENSIONS>>,
-    pub estimate_covariance: OMatrix<Scalar, Const<DIMENSIONS>, Const<DIMENSIONS>>,
+    pub estimate_state: OVector<Scalar, Const<DIM>>,
+    pub estimate_covariance: OMatrix<Scalar, Const<DIM>, Const<DIM>>,
 }
 
-impl<Scalar, const DIMENSIONS: usize, StateTransition, ProcessCovariance> KalmanFilter<Scalar, DIMENSIONS, StateTransition, ProcessCovariance>
+impl<Scalar, const DIM: usize, StateTransition, ProcessCovariance> KalmanFilter<Scalar, DIM, StateTransition, ProcessCovariance>
 where
     Scalar: nalgebra::RealField,
-    StateTransition: StateTransitionFunctor<Scalar, DIMENSIONS>,
-    ProcessCovariance: ProcessCovarianceFunctor<Scalar, DIMENSIONS>,
+    StateTransition: StateTransitionFunctor<Scalar, DIM>,
+    ProcessCovariance: ProcessCovarianceFunctor<Scalar, DIM>,
 {
     pub fn new(state_transition: StateTransition, process_covariance: ProcessCovariance) -> Self {
         Self {
             state_transition,
             process_covariance,
-            estimate_state: OVector::<Scalar, Const<DIMENSIONS>>::zeros(),
-            estimate_covariance: OMatrix::<Scalar, Const<DIMENSIONS>, Const<DIMENSIONS>>::identity(),
+            estimate_state: OVector::<Scalar, Const<DIM>>::zeros(),
+            estimate_covariance: OMatrix::<Scalar, Const<DIM>, Const<DIM>>::identity(),
         }
     }
 
@@ -83,18 +83,18 @@ where
         self
     }
 
-    pub fn update<const OBSERVATION_DIMENSIONS: usize>(
+    pub fn update<const OBSERVATION_DIM: usize>(
         &mut self,
-        observation_state: &OVector<Scalar, Const<OBSERVATION_DIMENSIONS>>,
-        observation_covariance: &OMatrix<Scalar, Const<OBSERVATION_DIMENSIONS>, Const<OBSERVATION_DIMENSIONS>>,
-        observation_matrix: &OMatrix<Scalar, Const<OBSERVATION_DIMENSIONS>, Const<DIMENSIONS>>,
+        observation_state: &OVector<Scalar, Const<OBSERVATION_DIM>>,
+        observation_covariance: &OMatrix<Scalar, Const<OBSERVATION_DIM>, Const<OBSERVATION_DIM>>,
+        observation_matrix: &OMatrix<Scalar, Const<OBSERVATION_DIM>, Const<DIM>>,
     ) -> &mut Self
     {
         let innovation_state = observation_state - observation_matrix * &self.estimate_state;
         let innovation_covariance = observation_matrix * &self.estimate_covariance * observation_matrix.transpose() + observation_covariance;
 
         let kalman_gain = &self.estimate_covariance * observation_matrix.transpose() * innovation_covariance.try_inverse().unwrap();
-        let state_update_jacobian = &OMatrix::<Scalar, Const<DIMENSIONS>, Const<DIMENSIONS>>::identity() - &kalman_gain * observation_matrix;
+        let state_update_jacobian = &OMatrix::<Scalar, Const<DIM>, Const<DIM>>::identity() - &kalman_gain * observation_matrix;
 
         self.estimate_state += &kalman_gain * innovation_state;
         self.estimate_covariance = &state_update_jacobian * &self.estimate_covariance * state_update_jacobian.transpose() + &kalman_gain * observation_covariance * kalman_gain.transpose();

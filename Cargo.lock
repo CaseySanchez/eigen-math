@@ -39,6 +39,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "eigen-optimize"
+version = "0.1.0"
+dependencies = [
+ "nalgebra",
+]
+
+[[package]]
 name = "glam"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

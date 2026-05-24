@@ -1,42 +1,42 @@
 use nalgebra::{Const, OVector, RealField};
 
-pub trait DerivativeFunctor<Scalar, const DIMENSION: usize>
+pub trait DerivativeFunctor<Scalar, const DIM: usize>
 where
     Scalar: RealField + Copy,
 {
-    fn evaluate(&self, state: &OVector<Scalar, Const<DIMENSION>>, time: Scalar) -> OVector<Scalar, Const<DIMENSION>>;
+    fn evaluate(&self, state: &OVector<Scalar, Const<DIM>>, time: Scalar) -> OVector<Scalar, Const<DIM>>;
 }
 
-impl<Scalar, const DIMENSION: usize, F> DerivativeFunctor<Scalar, DIMENSION> for F
+impl<Scalar, const DIM: usize, F> DerivativeFunctor<Scalar, DIM> for F
 where
     Scalar: RealField + Copy,
-    F: Fn(&OVector<Scalar, Const<DIMENSION>>, Scalar) -> OVector<Scalar, Const<DIMENSION>>,
+    F: Fn(&OVector<Scalar, Const<DIM>>, Scalar) -> OVector<Scalar, Const<DIM>>,
 {
-    fn evaluate(&self, state: &OVector<Scalar, Const<DIMENSION>>, time: Scalar) -> OVector<Scalar, Const<DIMENSION>> {
+    fn evaluate(&self, state: &OVector<Scalar, Const<DIM>>, time: Scalar) -> OVector<Scalar, Const<DIM>> {
         self(state, time)
     }
 }
 
-pub struct RungeKutta4<Scalar, const DIMENSION: usize, Derivative>
+pub struct RungeKutta4<Scalar, const DIM: usize, Derivative>
 where
     Scalar: RealField + Copy,
-    Derivative: DerivativeFunctor<Scalar, DIMENSION>,
+    Derivative: DerivativeFunctor<Scalar, DIM>,
 {
     derivative: Derivative,
     pub time: Scalar,
-    pub state: OVector<Scalar, Const<DIMENSION>>,
+    pub state: OVector<Scalar, Const<DIM>>,
 }
 
-impl<Scalar, const DIMENSION: usize, Derivative> RungeKutta4<Scalar, DIMENSION, Derivative>
+impl<Scalar, const DIM: usize, Derivative> RungeKutta4<Scalar, DIM, Derivative>
 where
     Scalar: RealField + Copy,
-    Derivative: DerivativeFunctor<Scalar, DIMENSION>,
+    Derivative: DerivativeFunctor<Scalar, DIM>,
 {
     pub fn new(derivative: Derivative) -> Self {
         Self {
             derivative,
             time: Scalar::zero(),
-            state: OVector::<Scalar, Const<DIMENSION>>::zeros(),
+            state: OVector::<Scalar, Const<DIM>>::zeros(),
         }
     }
 

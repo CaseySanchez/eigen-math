@@ -8,30 +8,30 @@ pub enum MultidimensionalScalingError {
 
 pub fn multidimensional_scaling<
     Scalar, 
-    const FEATURE_DIMENSIONS: usize, 
-    const EMBEDDING_DIMENSIONS: usize, 
+    const FEATURE_DIM: usize, 
+    const EMBEDDING_DIM: usize, 
 >(
-    feature_matrix: &OMatrix<Scalar, Const<FEATURE_DIMENSIONS>, Const<FEATURE_DIMENSIONS>>,
+    feature_matrix: &OMatrix<Scalar, Const<FEATURE_DIM>, Const<FEATURE_DIM>>,
     feature_count: usize,
-) -> Result<OMatrix<Scalar, Const<EMBEDDING_DIMENSIONS>, Const<FEATURE_DIMENSIONS>>, MultidimensionalScalingError>
+) -> Result<OMatrix<Scalar, Const<EMBEDDING_DIM>, Const<FEATURE_DIM>>, MultidimensionalScalingError>
 where
     Scalar: RealField + Copy,
-    Const<FEATURE_DIMENSIONS>: DimSub<U1>,
+    Const<FEATURE_DIM>: DimSub<U1>,
     DefaultAllocator:
-        Allocator<Const<FEATURE_DIMENSIONS>, Const<FEATURE_DIMENSIONS>> +
-        Allocator<Const<EMBEDDING_DIMENSIONS>, Const<EMBEDDING_DIMENSIONS>> +
-        Allocator<Const<FEATURE_DIMENSIONS>, Const<EMBEDDING_DIMENSIONS>> +
-        Allocator<Const<EMBEDDING_DIMENSIONS>, Const<FEATURE_DIMENSIONS>> +
-        Allocator<Const<FEATURE_DIMENSIONS>> +
-        Allocator<DimDiff<Const<FEATURE_DIMENSIONS>, U1>>,
+        Allocator<Const<FEATURE_DIM>, Const<FEATURE_DIM>> +
+        Allocator<Const<EMBEDDING_DIM>, Const<EMBEDDING_DIM>> +
+        Allocator<Const<FEATURE_DIM>, Const<EMBEDDING_DIM>> +
+        Allocator<Const<EMBEDDING_DIM>, Const<FEATURE_DIM>> +
+        Allocator<Const<FEATURE_DIM>> +
+        Allocator<DimDiff<Const<FEATURE_DIM>, U1>>,
 {
-    if feature_count < 1 || feature_count > FEATURE_DIMENSIONS {
+    if feature_count < 1 || feature_count > FEATURE_DIM {
         return Err(MultidimensionalScalingError::InvalidCount);
     }
 
     let inverse_feature_count = Scalar::one() / Scalar::from_usize(feature_count).unwrap();
 
-    let center_matrix = OMatrix::<Scalar, Const<FEATURE_DIMENSIONS>, Const<FEATURE_DIMENSIONS>>::from_fn(
+    let center_matrix = OMatrix::<Scalar, Const<FEATURE_DIM>, Const<FEATURE_DIM>>::from_fn(
         |row, column| {
             if row >= feature_count || column >= feature_count {
                 Scalar::zero()
@@ -47,10 +47,10 @@ where
 
     let mut eigen_solver = SymmetricEigen::new(gram_matrix);
 
-    for index_1 in 0..FEATURE_DIMENSIONS {
+    for index_1 in 0..FEATURE_DIM {
         let mut max_index = index_1;
 
-        for index_2 in (index_1 + 1)..FEATURE_DIMENSIONS {
+        for index_2 in (index_1 + 1)..FEATURE_DIM {
             if eigen_solver.eigenvalues[index_2] > eigen_solver.eigenvalues[max_index] {
                 max_index = index_2;
             }
@@ -62,7 +62,7 @@ where
         }
     }
 
-    let eigenvalues_diagonal_matrix = OMatrix::<Scalar, Const<EMBEDDING_DIMENSIONS>, Const<EMBEDDING_DIMENSIONS>>::from_fn(
+    let eigenvalues_diagonal_matrix = OMatrix::<Scalar, Const<EMBEDDING_DIM>, Const<EMBEDDING_DIM>>::from_fn(
         |row, column| {
             if row == column && row < feature_count {
                 eigen_solver.eigenvalues[row].max(Scalar::zero()).sqrt()
@@ -72,7 +72,7 @@ where
         }
     );
 
-    let eigenvectors_embedding_matrix = OMatrix::<Scalar, Const<FEATURE_DIMENSIONS>, Const<EMBEDDING_DIMENSIONS>>::from_fn(
+    let eigenvectors_embedding_matrix = OMatrix::<Scalar, Const<FEATURE_DIM>, Const<EMBEDDING_DIM>>::from_fn(
         |row, column| {
             if row < feature_count && column < feature_count {
                 eigen_solver.eigenvectors[(row, column)]

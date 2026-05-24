@@ -4,4 +4,5 @@ members = [
     "eigen-estimate",
     "eigen-geometry",
     "eigen-integrate",
+    "eigen-optimize",
 ]
