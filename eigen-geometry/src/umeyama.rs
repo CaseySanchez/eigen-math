@@ -7,12 +7,14 @@ use nalgebra::{
 
 #[derive(Debug)]
 pub enum UmeyamaError {
+    InvalidPointCount,
     InvalidSvd,
 }
 
 pub fn umeyama<Scalar, const FEATURE_DIM: usize, const POINT_COUNT: usize>(
     source_points: &OMatrix<Scalar, Const<FEATURE_DIM>, Const<POINT_COUNT>>,
     destination_points: &OMatrix<Scalar, Const<FEATURE_DIM>, Const<POINT_COUNT>>,
+    point_count: usize,
 ) -> Result<
     OMatrix<Scalar, DimSum<Const<FEATURE_DIM>, U1>, DimSum<Const<FEATURE_DIM>, U1>>,
     UmeyamaError,
@@ -31,19 +33,39 @@ where
         + Allocator<DimDiff<Const<FEATURE_DIM>, U1>>
         + Allocator<DimSum<Const<FEATURE_DIM>, U1>, DimSum<Const<FEATURE_DIM>, U1>>,
 {
-    let inverse_point_count = Scalar::one() / Scalar::from_usize(POINT_COUNT).unwrap();
+    if point_count < 1 || point_count > POINT_COUNT {
+        return Err(UmeyamaError::InvalidPointCount);
+    }
 
-    let source_centroid = source_points.column_sum() * inverse_point_count;
-    let destination_centroid = destination_points.column_sum() * inverse_point_count;
+    let inverse_point_count = Scalar::one() / Scalar::from_usize(point_count).unwrap();
+
+    let mut source_centroid = OVector::<Scalar, Const<FEATURE_DIM>>::zeros();
+    let mut destination_centroid = OVector::<Scalar, Const<FEATURE_DIM>>::zeros();
+
+    for col in 0..point_count {
+        source_centroid += source_points.column(col);
+        destination_centroid += destination_points.column(col);
+    }
+
+    source_centroid *= inverse_point_count;
+    destination_centroid *= inverse_point_count;
 
     let centered_source =
         OMatrix::<Scalar, Const<FEATURE_DIM>, Const<POINT_COUNT>>::from_fn(|row, col| {
-            source_points[(row, col)] - source_centroid[row]
+            if col < point_count {
+                source_points[(row, col)] - source_centroid[row]
+            } else {
+                Scalar::zero()
+            }
         });
 
     let centered_destination =
         OMatrix::<Scalar, Const<FEATURE_DIM>, Const<POINT_COUNT>>::from_fn(|row, col| {
-            destination_points[(row, col)] - destination_centroid[row]
+            if col < point_count {
+                destination_points[(row, col)] - destination_centroid[row]
+            } else {
+                Scalar::zero()
+            }
         });
 
     let covariance_matrix =
@@ -89,16 +111,32 @@ mod tests {
     use nalgebra::{Const, OMatrix};
 
     #[test]
+    fn invalid_point_count_returns_error() {
+        let points = OMatrix::<f64, Const<3>, Const<4>>::zeros();
+
+        assert!(matches!(
+            umeyama(&points, &points, 0),
+            Err(UmeyamaError::InvalidPointCount)
+        ));
+
+        assert!(matches!(
+            umeyama(&points, &points, 5),
+            Err(UmeyamaError::InvalidPointCount)
+        ));
+    }
+
+    #[test]
     fn identity_transform() {
         let points = OMatrix::<f64, Const<3>, Const<4>>::from_row_slice(&[
             1.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0,
         ]);
 
-        let transform = umeyama(&points, &points).unwrap();
+        let transform = umeyama(&points, &points, 4).unwrap();
 
         for row in 0..4 {
             for col in 0..4 {
                 let expected = if row == col { 1.0 } else { 0.0 };
+
                 assert!(
                     (transform[(row, col)] - expected).abs() < 1e-10,
                     "transform[{row},{col}] = {}",
