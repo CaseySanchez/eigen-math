@@ -1,6 +1,6 @@
 use nalgebra::{Const, OMatrix, OVector, RealField};
 
-pub trait ResidualsFunctor<Scalar, const PARAMETER_DIM: usize, const RESIDUAL_DIM: usize>
+pub trait ResidualFunctor<Scalar, const PARAMETER_DIM: usize, const RESIDUAL_DIM: usize>
 where
     Scalar: RealField + Copy,
 {
@@ -11,7 +11,7 @@ where
 }
 
 impl<Scalar, const PARAMETER_DIM: usize, const RESIDUAL_DIM: usize, F>
-    ResidualsFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM> for F
+    ResidualFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM> for F
 where
     Scalar: RealField + Copy,
     F: Fn(&OVector<Scalar, Const<PARAMETER_DIM>>) -> OVector<Scalar, Const<RESIDUAL_DIM>>,
@@ -73,33 +73,33 @@ pub struct LevenbergMarquardt<
     Scalar,
     const PARAMETER_DIM: usize,
     const RESIDUAL_DIM: usize,
-    Residuals,
+    Residual,
     PostStep,
 > where
     Scalar: RealField + Copy,
-    Residuals: ResidualsFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM>,
+    Residual: ResidualFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM>,
     PostStep: PostStepFunctor<Scalar, PARAMETER_DIM>,
 {
-    residuals: Residuals,
+    residual: Residual,
     post_step: PostStep,
     pub config: LevenbergMarquardtConfig<Scalar>,
     pub parameters: OVector<Scalar, Const<PARAMETER_DIM>>,
 }
 
-impl<Scalar, const PARAMETER_DIM: usize, const RESIDUAL_DIM: usize, Residuals, PostStep>
-    LevenbergMarquardt<Scalar, PARAMETER_DIM, RESIDUAL_DIM, Residuals, PostStep>
+impl<Scalar, const PARAMETER_DIM: usize, const RESIDUAL_DIM: usize, Residual, PostStep>
+    LevenbergMarquardt<Scalar, PARAMETER_DIM, RESIDUAL_DIM, Residual, PostStep>
 where
     Scalar: RealField + Copy,
-    Residuals: ResidualsFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM>,
+    Residual: ResidualFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM>,
     PostStep: PostStepFunctor<Scalar, PARAMETER_DIM>,
 {
     pub fn new(
-        residuals: Residuals,
+        residual: Residual,
         post_step: PostStep,
         config: LevenbergMarquardtConfig<Scalar>,
     ) -> Self {
         Self {
-            residuals,
+            residual,
             post_step,
             config,
             parameters: OVector::<Scalar, Const<PARAMETER_DIM>>::zeros(),
@@ -108,21 +108,21 @@ where
 
     pub fn solve(&mut self) -> LevenbergMarquardtResult<Scalar> {
         let mut lambda = self.config.lambda_initial;
-        let mut current_residuals = self.residuals.evaluate(&self.parameters);
+        let mut current_residual = self.residual.evaluate(&self.parameters);
         let mut current_cost =
-            Scalar::from_f64(0.5).unwrap() * current_residuals.dot(&current_residuals);
+            Scalar::from_f64(0.5).unwrap() * current_residual.dot(&current_residual);
 
         for iteration in 0..self.config.max_iterations {
             let jacobian_matrix = compute_numerical_jacobian(
-                &self.residuals,
+                &self.residual,
                 &self.parameters,
-                &current_residuals,
+                &current_residual,
                 self.config.finite_difference_epsilon,
             );
 
             let jacobian_transposed = jacobian_matrix.transpose();
             let normal_matrix = jacobian_transposed * jacobian_matrix;
-            let gradient = jacobian_transposed * current_residuals;
+            let gradient = jacobian_transposed * current_residual;
 
             let floor = Scalar::from_f64(1e-15).unwrap();
             let mut augmented_matrix = normal_matrix;
@@ -142,12 +142,12 @@ where
 
             self.post_step.evaluate(&mut trial_parameters);
 
-            let trial_residuals = self.residuals.evaluate(&trial_parameters);
-            let trial_cost = Scalar::from_f64(0.5).unwrap() * trial_residuals.dot(&trial_residuals);
+            let trial_residual = self.residual.evaluate(&trial_parameters);
+            let trial_cost = Scalar::from_f64(0.5).unwrap() * trial_residual.dot(&trial_residual);
 
             if trial_cost < current_cost {
                 self.parameters = trial_parameters;
-                current_residuals = trial_residuals;
+                current_residual = trial_residual;
                 current_cost = trial_cost;
                 lambda /= self.config.lambda_factor;
 
@@ -173,18 +173,18 @@ where
 
 fn compute_numerical_jacobian<
     Scalar,
-    Residuals,
+    Residual,
     const PARAMETER_DIM: usize,
     const RESIDUAL_DIM: usize,
 >(
-    residuals_functor: &Residuals,
+    residual_functor: &Residual,
     parameters: &OVector<Scalar, Const<PARAMETER_DIM>>,
-    base_residuals: &OVector<Scalar, Const<RESIDUAL_DIM>>,
+    base_residual: &OVector<Scalar, Const<RESIDUAL_DIM>>,
     epsilon: Scalar,
 ) -> OMatrix<Scalar, Const<RESIDUAL_DIM>, Const<PARAMETER_DIM>>
 where
     Scalar: RealField + Copy,
-    Residuals: ResidualsFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM>,
+    Residual: ResidualFunctor<Scalar, PARAMETER_DIM, RESIDUAL_DIM>,
 {
     let mut jacobian_matrix = OMatrix::<Scalar, Const<RESIDUAL_DIM>, Const<PARAMETER_DIM>>::zeros();
     let mut perturbed_parameters = *parameters;
@@ -192,13 +192,13 @@ where
     for parameter_index in 0..PARAMETER_DIM {
         perturbed_parameters[parameter_index] += epsilon;
 
-        let perturbed_residuals = residuals_functor.evaluate(&perturbed_parameters);
+        let perturbed_residual = residual_functor.evaluate(&perturbed_parameters);
 
         perturbed_parameters[parameter_index] -= epsilon;
 
         for residual_index in 0..RESIDUAL_DIM {
             jacobian_matrix[(residual_index, parameter_index)] =
-                (perturbed_residuals[residual_index] - base_residuals[residual_index]) / epsilon;
+                (perturbed_residual[residual_index] - base_residual[residual_index]) / epsilon;
         }
     }
 
